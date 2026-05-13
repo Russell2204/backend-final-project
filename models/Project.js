@@ -1,6 +1,7 @@
 const db = require('../config/db');
 
 const initDB = () => {
+  // Таблица проектов
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -13,6 +14,7 @@ const initDB = () => {
     )
   `);
 
+  // Таблица администраторов
   db.exec(`
     CREATE TABLE IF NOT EXISTS admins (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,4 +29,4 @@ const initDB = () => {
   console.log('✅ Таблицы projects и admins готовы');
 };
 
-module.exports = { initDB, db };
+module.exports = { initDB };
