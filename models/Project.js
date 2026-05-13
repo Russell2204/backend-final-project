@@ -1,8 +1,7 @@
 const db = require('../config/db');
 
 const initDB = () => {
-  // Таблица проектов
-  db.run(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       title       TEXT NOT NULL,
@@ -12,16 +11,9 @@ const initDB = () => {
       year        INTEGER,
       createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  `, (err) => {
-    if (err) {
-      console.error('❌ Ошибка создания таблицы projects:', err.message);
-    } else {
-      console.log('✅ Таблица projects готова');
-    }
-  });
+  `);
 
-  // Таблица администраторов (для будущей авторизации)
-  db.run(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS admins (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       username    TEXT UNIQUE NOT NULL,
@@ -30,13 +22,9 @@ const initDB = () => {
       role        TEXT DEFAULT 'admin',
       createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  `, (err) => {
-    if (err) {
-      console.error('❌ Ошибка создания таблицы admins:', err.message);
-    } else {
-      console.log('✅ Таблица admins готова');
-    }
-  });
+  `);
+
+  console.log('✅ Таблицы projects и admins готовы');
 };
 
-module.exports = { initDB };
+module.exports = { initDB, db };
