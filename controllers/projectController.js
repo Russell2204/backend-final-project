@@ -1,41 +1,10 @@
 const db = require('../config/db');
 
-// Promise-обёртки для удобства
-const run = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) return reject(err);
-      resolve({ lastID: this.lastID, changes: this.changes });
-    });
-  });
-};
-
-const all = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) return reject(err);
-      resolve(rows);
-    });
-  });
-};
-
-const get = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
-};
-
 const projectController = {
 
-  // GET /api/projects — получить все проекты
-  getAll: async (req, res) => {
+  getAll: (req, res) => {
     try {
-      const projects = await all(
-        'SELECT * FROM projects ORDER BY createdAt DESC'
-      );
+      const projects = db.prepare('SELECT * FROM projects ORDER BY createdAt DESC').all();
       res.json({ success: true, count: projects.length, data: projects });
     } catch (error) {
       console.error(error);
@@ -43,27 +12,17 @@ const projectController = {
     }
   },
 
-  // GET /api/projects/:id — получить один проект
-  getById: async (req, res) => {
+  getById: (req, res) => {
     try {
-      const project = await get(
-        'SELECT * FROM projects WHERE id = ?',
-        [req.params.id]
-      );
-
-      if (!project) {
-        return res.status(404).json({ success: false, error: 'Проект не найден' });
-      }
-
+      const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
+      if (!project) return res.status(404).json({ success: false, error: 'Проект не найден' });
       res.json({ success: true, data: project });
     } catch (error) {
-      console.error(error);
       res.status(500).json({ success: false, error: 'Ошибка сервера' });
     }
   },
 
-  // POST /api/projects — создать проект
-  create: async (req, res) => {
+  create: (req, res) => {
     const { title, description, category, imageUrl, year } = req.body;
 
     if (!title) {
@@ -71,72 +30,65 @@ const projectController = {
     }
 
     try {
-      const result = await run(
-        `INSERT INTO projects (title, description, category, imageUrl, year)
-         VALUES (?, ?, ?, ?, ?)`,
-        [title, description, category, imageUrl, year]
-      );
-
-      const newProject = await get('SELECT * FROM projects WHERE id = ?', [result.lastID]);
+      const stmt = db.prepare(`
+        INSERT INTO projects (title, description, category, imageUrl, year)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      
+      const result = stmt.run(title, description, category, imageUrl, year || new Date().getFullYear());
+      
+      const newProject = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid);
 
       res.status(201).json({
         success: true,
-        message: 'Проект успешно создан',
+        message: 'Проект создан',
         data: newProject
       });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ success: false, error: 'Ошибка при создании проекта' });
+      res.status(500).json({ success: false, error: 'Ошибка при создании' });
     }
   },
 
-  // PUT /api/projects/:id — обновить проект
-  update: async (req, res) => {
+  update: (req, res) => {
     const { title, description, category, imageUrl, year } = req.body;
     const { id } = req.params;
 
     try {
-      const result = await run(
-        `UPDATE projects 
-         SET title = COALESCE(?, title),
-             description = COALESCE(?, description),
-             category = COALESCE(?, category),
-             imageUrl = COALESCE(?, imageUrl),
-             year = COALESCE(?, year)
-         WHERE id = ?`,
-        [title, description, category, imageUrl, year, id]
-      );
+      const stmt = db.prepare(`
+        UPDATE projects 
+        SET title = COALESCE(?, title),
+            description = COALESCE(?, description),
+            category = COALESCE(?, category),
+            imageUrl = COALESCE(?, imageUrl),
+            year = COALESCE(?, year)
+        WHERE id = ?
+      `);
+      
+      const result = stmt.run(title, description, category, imageUrl, year, id);
 
       if (result.changes === 0) {
         return res.status(404).json({ success: false, error: 'Проект не найден' });
       }
 
-      const updatedProject = await get('SELECT * FROM projects WHERE id = ?', [id]);
-
-      res.json({
-        success: true,
-        message: 'Проект успешно обновлён',
-        data: updatedProject
-      });
+      const updated = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+      res.json({ success: true, message: 'Проект обновлён', data: updated });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, error: 'Ошибка при обновлении проекта' });
+      res.status(500).json({ success: false, error: 'Ошибка обновления' });
     }
   },
 
-  // DELETE /api/projects/:id — удалить проект
-  delete: async (req, res) => {
+  delete: (req, res) => {
     try {
-      const result = await run('DELETE FROM projects WHERE id = ?', [req.params.id]);
-
+      const result = db.prepare('DELETE FROM projects WHERE id = ?').run(req.params.id);
+      
       if (result.changes === 0) {
         return res.status(404).json({ success: false, error: 'Проект не найден' });
       }
 
-      res.json({ success: true, message: 'Проект успешно удалён' });
+      res.json({ success: true, message: 'Проект удалён' });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, error: 'Ошибка при удалении проекта' });
+      res.status(500).json({ success: false, error: 'Ошибка удаления' });
     }
   }
 };
