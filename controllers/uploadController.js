@@ -1,55 +1,64 @@
-const cloudinary = require('../config/cloudinary');
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
 
-const uploadImage = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'Файл не загружен'
-      });
-    }
+// Настройка Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-    // Преобразуем buffer в base64 stream
-    const uploadResult = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
+const uploadController = {
+
+  uploadImage: async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Файл не загружен' 
+        });
+      }
+
+      // Загрузка в Cloudinary
+      const result = await cloudinary.uploader.upload_stream(
         {
           folder: 'furniture-studio/projects',
-          resource_type: 'image',
+          resource_type: 'auto',
           transformation: [
-            { quality: 'auto' },
-            { fetch_format: 'auto' },
-            { width: 1200, crop: 'limit' } // Опционально: ограничиваем ширину
+            { width: 1200, crop: 'limit' },
+            { quality: 'auto' }
           ]
         },
         (error, result) => {
-          if (error) return reject(error);
-          resolve(result);
+          if (error) {
+            console.error('Cloudinary error:', error);
+            return res.status(500).json({ 
+              success: false, 
+              error: 'Ошибка загрузки на Cloudinary' 
+            });
+          }
+
+          res.json({
+            success: true,
+            message: 'Изображение успешно загружено',
+            secure_url: result.secure_url,
+            public_id: result.public_id,
+            url: result.secure_url
+          });
         }
       );
 
-      uploadStream.end(req.file.buffer);
-    });
+      // Передаём буфер файла в stream
+      result.end(req.file.buffer);
 
-    res.status(201).json({
-      success: true,
-      message: 'Изображение успешно загружено',
-      data: {
-        url: uploadResult.secure_url,
-        public_id: uploadResult.public_id,
-        width: uploadResult.width,
-        height: uploadResult.height,
-        format: uploadResult.format,
-        bytes: uploadResult.bytes
-      }
-    });
-
-  } catch (error) {
-    console.error('Cloudinary upload error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка при загрузке изображения на Cloudinary'
-    });
+    } catch (error) {
+      console.error('Upload error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Внутренняя ошибка сервера при загрузке' 
+      });
+    }
   }
 };
 
-module.exports = { uploadImage };
+module.exports = uploadController;
