@@ -1,20 +1,16 @@
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
 
-// Путь к базе данных
 const dbPath = path.resolve(__dirname, '../database.db');
 
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('❌ Ошибка подключения к SQLite:', err.message);
-  } else {
-    console.log('✅ Успешно подключено к SQLite базе: database.db');
-  }
+const db = new Database(dbPath, {
+  verbose: console.log, // опционально для отладки
 });
 
-// Включаем foreign keys и WAL-режим для лучшей производительности
-db.exec('PRAGMA foreign_keys = ON;', (err) => {
-  if (err) console.error('Ошибка PRAGMA:', err);
-});
+// Включаем WAL-режим и foreign keys
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
+
+console.log('✅ Успешно подключено к SQLite базе: database.db');
 
 module.exports = db;
